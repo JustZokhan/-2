@@ -1,0 +1,116 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Админ — CLOSING TEAM</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="has-bg">
+  <div class="container">
+    <div class="topbar">
+      <h1 class="h1">Админ-панель</h1>
+      <div class="top-actions">
+        <a href="/" class="btn">На главную</a>
+        <form method="post" action="/admin/logout" style="display:inline-block;margin-left:8px;">
+          <button class="btn" type="submit">Выйти</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 class="section-title">Названия команд</h3>
+      <form onsubmit="return saveTeamNames(event)">
+        {% for t in teams %}
+        <div style="margin-bottom:8px;">
+          <label class="muted" style="display:inline-block; width:70px;">{{ t.key }}</label>
+          <input type="text" id="teamname_{{ t.key }}" value="{{ t.name }}" class="input" style="width: 260px;">
+        </div>
+        {% endfor %}
+        <button class="btn" type="submit">Сохранить названия</button>
+      </form>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 class="section-title">Сотрудники</h3>
+      <div class="actions" style="margin-bottom:10px;">
+        <input id="new_emp_name" class="input" placeholder="Новое имя" style="width:220px;">
+        <select id="new_emp_team" class="select">
+          <option value="left">left</option>
+          <option value="right">right</option>
+        </select>
+        <button class="btn" onclick="addEmployee()">➕ Добавить</button>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>Имя</th><th>Команда</th><th>Действия</th></tr></thead>
+        <tbody>
+        {% for emp in employees %}
+          <tr>
+            <td>{{ emp.id }}</td>
+            <td><input id="name_{{ emp.id }}" class="input" value="{{ emp.name }}" style="width:200px;"></td>
+            <td>
+              <select id="team_{{ emp.id }}" class="select">
+                <option value="left" {% if emp.team_key == 'left' %}selected{% endif %}>left</option>
+                <option value="right" {% if emp.team_key == 'right' %}selected{% endif %}>right</option>
+              </select>
+            </td>
+            <td class="actions">
+              <button onclick="renameEmployee({{ emp.id }})" class="btn">Переименовать</button>
+              <button onclick="setTeam({{ emp.id }})" class="btn">Сохранить команду</button>
+              <button onclick="deleteEmployee({{ emp.id }})" class="btn" style="background:#ef4444;color:white;">Удалить</button>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3 class="section-title">Суммы по дням (только дельта)</h3>
+      <table>
+        <thead>
+          <tr><th>Сотрудник</th>{% for d in ["ПТ","СБ","ПН","ВТ","СР","ЧТ"] %}<th>{{ d }}</th>{% endfor %}</tr>
+        </thead>
+        <tbody>
+        {% for emp in employees %}
+          <tr>
+            <td>
+              <div style="font-weight:700">{{ emp.name }}</div>
+              <div class="muted" style="font-size:12px;">ID: {{ emp.id }} • Team: {{ emp.team_key }}</div>
+            </td>
+            {% for d in ["ПТ","СБ","ПН","ВТ","СР","ЧТ"] %}
+            <td>
+              <input value="{{ res_map.get(emp.id, {}).get(d, 0) }}" class="input readonly" readonly style="width: 120px;">
+              <div class="actions" style="margin-top:6px;">
+                <input id="delta_{{ emp.id }}_{{ d }}" type="text" class="input" style="width: 120px;" placeholder="+/- дельта">
+                <button onclick="applyDelta({{ emp.id }}, '{{ d }}')" class="btn">Δ</button>
+              </div>
+            </td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <div style="margin-top:12px;">
+        <button onclick="resetAll()" class="btn" style="background:#ef4444;color:white;">🔁 Обнулить всю статистику</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+async function postForm(url, payload){
+  try{const fd=new FormData();for(const k in payload)fd.append(k,payload[k]);const res=await fetch(url,{method:'POST',body:fd});return await res.json();}
+  catch(e){alert('Ошибка сети');return {status:'error'};}
+}
+async function saveTeamNames(e){e.preventDefault();for(const key of ['left','right']){const val=document.getElementById('teamname_'+key).value||key;await postForm('/admin/team/rename',{key,name:val});}location.reload();}
+async function addEmployee(){const name=document.getElementById('new_emp_name').value.trim();const team_key=document.getElementById('new_emp_team').value;if(!name)return alert('Введите имя');const d=await postForm('/admin/employee/add',{name,team_key});if(d.status!=='success')return alert(d.message||'Ошибка');location.reload();}
+async function renameEmployee(id){const name=document.getElementById('name_'+id).value;const d=await postForm('/admin/employee/rename',{employee_id:id,name});if(d.status!=='success')return alert(d.message||'Ошибка');location.reload();}
+async function setTeam(empId){const team_key=document.getElementById('team_'+empId).value;const d=await postForm('/admin/employee/set_team',{employee_id:empId,team_key});if(d.status!=='success')return alert(d.message||'Ошибка');location.reload();}
+async function deleteEmployee(id){if(!confirm('Удалить сотрудника #'+id+'?'))return;const d=await postForm('/admin/employee/delete',{employee_id:id});if(d.status!=='success')return alert(d.message||'Ошибка');location.reload();}
+async function applyDelta(empId,day){const delta=document.getElementById(`delta_${empId}_${day}`).value??'0';if(!delta.trim())return;const d=await postForm('/admin/result/increment',{employee_id:empId,day,delta});if(d.status!=='success')return alert(d.message||'Ошибка');location.reload();}
+try{const es=new EventSource('/events');es.onmessage=(e)=>{try{const d=JSON.parse(e.data||'{}');if(d.event==='reload')location.reload()}catch{}}}catch{}
+async function resetAll(){if(!confirm('Вы уверены, что хотите обнулить ВСЮ статистику?'))return;const res=await fetch('/admin/reset_all',{method:'POST'});const d=await res.json();alert(d.message||'Обнулено');location.reload();}
+</script>
+</body>
+</html>

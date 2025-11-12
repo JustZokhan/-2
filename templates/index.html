@@ -1,0 +1,98 @@
+
+{% set daily_target_mln = (TARGET_DAILY // 1_000_000) | int %}
+{% macro kk(v) -%}{{ ('%.1f' % (v/1_000_000))|replace('.0','') }}кк{%- endmacro %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>СТАТИСТИКА | CLOSING TEAM</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="has-bg">
+  <div class="container">
+    <div class="topbar">
+      <h1 class="h1 split"><span>СТАТИСТИКА</span><i></i><span>CLOSING TEAM</span></h1>
+      <div class="top-actions"><a class="btn" href="/admin">Админ-панель</a></div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        {% set done = left.grand_total %}
+        {% set left_rem = (WEEKLY_TARGET - done) if WEEKLY_TARGET>done else 0 %}
+        <div class="section-title">
+          {{ left.name }} • Цель 24кк<br>Уже угнали: {{ kk(done) }} • Осталось: {{ kk(left_rem) }}
+        </div>
+        <div class="team-grid">
+          <div>
+            <div class="muted" style="margin:6px 0 10px;">День • Результат</div>
+            <div class="days">
+              {% for d in days %}
+              {% set v = left.totals_by_day[d] %}
+              {% set ok = (v >= TARGET_DAILY) %}
+              {% set pct = (v * 100 // TARGET_DAILY) if TARGET_DAILY else 0 %}
+              <div class="daybox {% if ok %}ok{% endif %}">
+                <div>{{ d }}</div>
+                <span class="sum">{{ kk(v) }}/{{ daily_target_mln }}кк</span>
+                <div class="progress"><i style="width: {{ pct }}%"></i></div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          <div>
+            <div class="section-title">Сотрудники</div>
+            <table>
+              <thead><tr><th>Имя</th><th>Сумма</th></tr></thead>
+              <tbody>
+                {% for emp in left.employees %}
+                <tr><td>{{ emp.name }}</td><td>{{ kk(emp.total_sum) }}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        {% set done = right.grand_total %}
+        {% set right_rem = (WEEKLY_TARGET - done) if WEEKLY_TARGET>done else 0 %}
+        <div class="section-title">
+          {{ right.name }} • Цель 24кк<br>Уже угнали: {{ kk(done) }} • Осталось: {{ kk(right_rem) }}
+        </div>
+        <div class="team-grid">
+          <div>
+            <div class="muted" style="margin:6px 0 10px;">День • Результат</div>
+            <div class="days">
+              {% for d in days %}
+              {% set v = right.totals_by_day[d] %}
+              {% set ok = (v >= TARGET_DAILY) %}
+              {% set pct = (v * 100 // TARGET_DAILY) if TARGET_DAILY else 0 %}
+              <div class="daybox {% if ok %}ok{% endif %}">
+                <div>{{ d }}</div>
+                <span class="sum">{{ kk(v) }}/{{ daily_target_mln }}кк</span>
+                <div class="progress"><i style="width: {{ pct }}%"></i></div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          <div>
+            <div class="section-title">Сотрудники</div>
+            <table>
+              <thead><tr><th>Имя</th><th>Сумма</th></tr></thead>
+              <tbody>
+                {% for emp in right.employees %}
+                <tr><td>{{ emp.name }}</td><td>{{ kk(emp.total_sum) }}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+try{const es=new EventSource('/events');es.onmessage=(e)=>{try{const d=JSON.parse(e.data||'{}');if(d.event==='reload')location.reload()}catch{}}}catch{}
+</script>
+</body>
+</html>
